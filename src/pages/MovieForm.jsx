@@ -1,4 +1,5 @@
-import { useState } from "react"
+import { useState, useId, useEffect, useRef } from "react"
+import { useOutletContext, useNavigate } from "react-router-dom"
 import { v4 as uuidv4 } from 'uuid'
 
 function MovieForm() {
@@ -6,43 +7,56 @@ function MovieForm() {
   const [time, setTime] = useState("")
   const [genres, setGenres] = useState("")
 
-  // Replace me
-  const director = null
   
+  const titleId = useId()
+  const navigate = useNavigate()
+  const titleInputRef = useRef(null) // Create a reference for the title input
+
+  
+  const { director, setDirectors } = useOutletContext()
+  
+  //  Side Effect: Focus the title input when the form loads
+  useEffect(() => {
+    titleInputRef.current.focus()
+  }, [])
+
   if (!director) { return <h2>Director not found.</h2>}
 
   const handleSubmit = (e) => {
     e.preventDefault()
     const newMovie = {
-      id: uuidv4(),
+      id: uuidv4(), // Generates a new UUID string to match your db.json style
       title,
       time: parseInt(time),
       genres: genres.split(",").map((genre) => genre.trim()),
     }
-    fetch(`http://localhost:4000/directors/${id}`, {
+
+    // Ensure director.id is used correctly in the template literal
+    fetch(`http://localhost:4000/directors/${director.id}`, {
       method: "PATCH",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({movies: [...director.movies, newMovie]})
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ movies: [...director.movies, newMovie] })
     })
     .then(r => {
-      if (!r.ok) { throw new Error("failed to add movie") }
+      if (!r.ok) throw new Error("failed to add movie")
       return r.json()
     })
-    .then(data => {
-      console.log(data)
-      // handle context/state changes
-      // navigate to newly created movie page
+    .then(updatedDirector => {
+      // Update the main list in DirectorContainer
+      setDirectors(prev => prev.map(d => d.id === updatedDirector.id ? updatedDirector : d))
+      // Navigate using the new movie's UUID
+      navigate(`/directors/${director.id}/movies/${newMovie.id}`)
     })
-    .catch(console.log)
   }
 
   return (
     <div>
-      <h2>Add New Movie</h2>
+      <h2>Add New Movie to {director.name}</h2>
       <form onSubmit={handleSubmit}>
+        <label htmlFor={titleId}>Title:</label>
         <input
+          id={titleId}
+          ref={titleInputRef} 
           type="text"
           placeholder="Movie Title"
           value={title}
@@ -70,4 +84,3 @@ function MovieForm() {
 }
 
 export default MovieForm
-
